@@ -103,8 +103,18 @@ def process_commits(commits):
 # ---------------------- UI ----------------------
 st.title("GitHub Commit Frequency Visualizer")
 
-pat = st.text_input("GitHub Personal Access Token", type="password")
-org = st.text_input("Organization name")
+# Persist PAT and org locally using Streamlit session state
+if "pat" not in st.session_state:
+    st.session_state.pat = ""
+if "org" not in st.session_state:
+    st.session_state.org = ""
+
+pat = st.text_input("GitHub Personal Access Token", type="password", value=st.session_state.pat)
+org = st.text_input("Organization name", value=st.session_state.org)
+
+# Save to session state (local to client session)
+st.session_state.pat = pat
+st.session_state.org = org
 
 if pat and org:
     headers = {"Authorization": f"token {pat}"}
