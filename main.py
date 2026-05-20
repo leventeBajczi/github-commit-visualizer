@@ -1,8 +1,11 @@
 import requests
 import datetime
+import concurrent.futures
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
+
+st.set_page_config(layout="wide")
 
 # ---------------------- CONFIG ----------------------
 GITHUB_API = "https://api.github.com"
@@ -150,7 +153,7 @@ def build_team_chart(df, repo_name):
     grouped = df.groupby(["week", "author"]).size().reset_index(name="count")
     pivot = grouped.pivot(index="week", columns="author", values="count").fillna(0)
 
-    fig, ax = plt.subplots(figsize=(4, 3))
+    fig, ax = plt.subplots(figsize=(6, 4))
     pivot.plot(kind="bar", stacked=True, ax=ax, legend=True)
     ax.set_title(repo_name, fontsize=9)
     ax.set_xlabel("")
@@ -227,6 +230,13 @@ if pat and org:
             if not year_repos:
                 st.info(f"No repositories found with the prefix '{current_year}'.")
             else:
+                with st.spinner("Loading all team data..."):
+                    def _fetch(repo_name):
+                        return repo_name, fetch_commits_since_year_start(org, repo_name, headers)
+
+                    with concurrent.futures.ThreadPoolExecutor() as executor:
+                        results = dict(executor.map(lambda r: _fetch(r), year_repos))
+
                 COLS = 3
                 for row_start in range(0, len(year_repos), COLS):
                     row_repos = year_repos[row_start:row_start + COLS]
@@ -234,9 +244,7 @@ if pat and org:
                     for col, team_repo in zip(cols, row_repos):
                         with col:
                             st.markdown(f"**{team_repo}**")
-                            with st.spinner(f"Loading {team_repo}..."):
-                                team_commits = fetch_commits_since_year_start(org, team_repo, headers)
-                            team_df = process_commits(team_commits)
+                            team_df = process_commits(results[team_repo])
                             if not team_df.empty:
                                 fig = build_team_chart(team_df, team_repo)
                                 st.pyplot(fig)
