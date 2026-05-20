@@ -150,13 +150,26 @@ def build_team_chart(df, repo_name):
     grouped = df.groupby(["week", "author"]).size().reset_index(name="count")
     pivot = grouped.pivot(index="week", columns="author", values="count").fillna(0)
 
-    # Always extend the x-axis to the current calendar week so all charts share the same end point
+    # Build a complete range of ISO weeks from the first commit to today
     today = datetime.date.today()
     today_iso = today.isocalendar()
     today_week = today_iso.year * 100 + today_iso.week
-    if len(pivot) == 0 or pivot.index.max() < today_week:
-        pivot.loc[today_week] = 0
-        pivot = pivot.sort_index()
+
+    first_week = pivot.index.min() if len(pivot) else today_week
+
+    # Enumerate every ISO week between first_week and today_week
+    def _all_iso_weeks(start_yw, end_yw):
+        weeks = []
+        d = datetime.date.fromisocalendar(start_yw // 100, start_yw % 100, 1)
+        end_d = datetime.date.fromisocalendar(end_yw // 100, end_yw % 100, 1)
+        while d <= end_d:
+            iso = d.isocalendar()
+            weeks.append(iso.year * 100 + iso.week)
+            d += datetime.timedelta(weeks=1)
+        return weeks
+
+    all_weeks = _all_iso_weeks(first_week, today_week)
+    pivot = pivot.reindex(all_weeks, fill_value=0)
 
     fig, ax = plt.subplots(figsize=(6, 4))
     pivot.plot(kind="bar", stacked=True, ax=ax, legend=True)
