@@ -145,12 +145,15 @@ def build_team_chart(df, repo_name):
     """Return a compact weekly-aggregated stacked bar chart for a team."""
     df = df.copy()
     df["date"] = pd.to_datetime(df["date"])
-    df["week"] = df["date"].dt.to_period("W").apply(lambda p: p.start_time.date())
+    iso = df["date"].dt.isocalendar()
+    df["week"] = iso["year"] * 100 + iso["week"]
     grouped = df.groupby(["week", "author"]).size().reset_index(name="count")
     pivot = grouped.pivot(index="week", columns="author", values="count").fillna(0)
 
-    # Always extend the x-axis to the current week so all charts share the same end point
-    today_week = pd.Period(datetime.date.today(), "W").start_time.date()
+    # Always extend the x-axis to the current calendar week so all charts share the same end point
+    today = datetime.date.today()
+    today_iso = today.isocalendar()
+    today_week = today_iso.year * 100 + today_iso.week
     if len(pivot) == 0 or pivot.index.max() < today_week:
         pivot.loc[today_week] = 0
         pivot = pivot.sort_index()
@@ -160,7 +163,7 @@ def build_team_chart(df, repo_name):
     ax.set_title(repo_name, fontsize=9)
     ax.set_xlabel("")
     ax.set_ylabel("Commits")
-    week_labels = [str(w) for w in pivot.index]
+    week_labels = [f"W{w % 100:02d}" for w in pivot.index]
     ax.set_xticklabels(week_labels, rotation=60, ha="right", fontsize=6)
     ax.legend(fontsize=6, loc="upper left")
     plt.tight_layout()
