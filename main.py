@@ -176,7 +176,10 @@ def build_team_chart(df, repo_name):
     ax.set_title(repo_name, fontsize=9)
     ax.set_xlabel("")
     ax.set_ylabel("Commits")
-    week_labels = [f"W{w % 100:02d}" for w in pivot.index]
+    week_labels = [
+        datetime.date.fromisocalendar(w // 100, w % 100, 1).strftime("%b %d")
+        for w in pivot.index
+    ]
     ax.set_xticklabels(week_labels, rotation=60, ha="right", fontsize=6)
     ax.legend(fontsize=6, loc="upper left")
     plt.tight_layout()
