@@ -30,7 +30,6 @@ def get_org_repos(org, headers):
 
 @st.cache_data(show_spinner=False)
 def fetch_commits(org, repo, headers):
-    since = (datetime.datetime.utcnow() - datetime.timedelta(days=60)).isoformat() + "Z"
     commits = []
 
     # First, get all branches
@@ -60,7 +59,6 @@ def fetch_commits(org, repo, headers):
         while True:
             url = f"{GITHUB_API}/repos/{org}/{repo}/commits"
             params = {
-                "since": since,
                 "per_page": 100,
                 "page": page,
                 "sha": branch
@@ -105,8 +103,6 @@ def process_commits(commits):
 
 @st.cache_data(show_spinner=False)
 def fetch_commits_since_year_start(org, repo, headers):
-    year = datetime.date.today().year
-    since = datetime.datetime(year, 1, 1).isoformat() + "Z"
     commits = []
 
     branches = []
@@ -128,7 +124,7 @@ def fetch_commits_since_year_start(org, repo, headers):
         page = 1
         while True:
             url = f"{GITHUB_API}/repos/{org}/{repo}/commits"
-            params = {"since": since, "per_page": 100, "page": page, "sha": branch}
+            params = {"per_page": 100, "page": page, "sha": branch}
             r = requests.get(url, headers=headers, params=params)
             if r.status_code != 200:
                 break
@@ -152,6 +148,12 @@ def build_team_chart(df, repo_name):
     df["week"] = df["date"].dt.to_period("W").apply(lambda p: p.start_time.date())
     grouped = df.groupby(["week", "author"]).size().reset_index(name="count")
     pivot = grouped.pivot(index="week", columns="author", values="count").fillna(0)
+
+    # Always extend the x-axis to the current week so all charts share the same end point
+    today_week = pd.Period(datetime.date.today(), "W").start_time.date()
+    if len(pivot) == 0 or pivot.index.max() < today_week:
+        pivot.loc[today_week] = 0
+        pivot = pivot.sort_index()
 
     fig, ax = plt.subplots(figsize=(6, 4))
     pivot.plot(kind="bar", stacked=True, ax=ax, legend=True)
